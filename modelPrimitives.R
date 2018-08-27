@@ -1,53 +1,67 @@
-###  Number of states
-J <- 3
+### 3 players and 3 states
+findMarketClearing <- function(W, Mu, alpha = 0.5, iterations = 80)
+{
 
-### Number of players
-I <- 3
+## Normalise wealth distribution
+totalW <- sum(W)
+normW <- W/totalW
 
-###  Wealth
-W <- matrix(c(4,5,6))
-
-### Beliefs
-Mu <- as.matrix(t(rbind(
-                  c(0.1,0.5,0.2), c(0.6, 0.3, 0.2), c(0.3, 0.2, 0.6)
-                    )))
-
-#if apply(Mu, 1, sum)) <> c(1,1,1) then stop
-
-###  Certainty
-Alpha <- as.matrix(c(0.5,0.95,0.5))
-
-### Initial quantity
+## Choose initial value for Q
 Q <- Mu
 
-
-#### Find prices from quantities
-
-for (t in 1:30)
+for (t in 1:iterations)
 {
-xP <- solve(Q) %*% W
+
+### STEP 1.1:  Find prices from quantities
+# Q %*% P = W
+
+xP <- solve(Q) %*% normW
 P <- xP/sum(xP)
 
-## check
-#max((Q %*% P) / W) - min((Q %*% P) / W)
-
-### Find quantities from prices
+### STEP 2:  Find quantities from prices
+# mu alpha q^{alpha -1} = (lambda) p
+# This section of code needs reviewing
 
 yP <- as.matrix(t(rbind(
   c(1/P[1],0,0), c(0, 1/P[2], 0), c(0, 0, 1/P[3])
 )))
 
-## mu alpha q^{alpha -1} = 1 / p
-yQ <- 0.5*(Mu%*%yP)
 
-xQ <-(yQ)^{1/(1 - 0.5)}
+yQ <- alpha*(Mu%*%yP)
+LambdaQ <-(yQ)^{1/(1 - alpha)}
 
-# check
-#  Mu[1,2]*0.5*xQ[1,2]^{0.5 - 1} - (P[2])
+###  This section normalises Q so that columns sum to 1 - and assumes lambda constant across players
+#  Either lambda is constant by coincidence (assumption above)
+#  Either W is endogenous (and lambda = 1, since players have choice to not participate)
+#  Or Lambda is not constant (and above does not make sense)
 
-normXQ <- colSums(xQ)
-
-Q <- xQ
-Q[,1] <- xQ[,1]/normXQ[1]
-Q[,2] <- xQ[,2]/normXQ[2]
+### What needs to be done is take "LambdaQ"
+#  Divide each row by constant
+#  Choose constant such that each column sums to 1
+Q <- LambdaQ
+Q[,1] <- LambdaQ[,1]/colSums(LambdaQ)[1]
+Q[,2] <- LambdaQ[,2]/colSums(LambdaQ)[2]
+Q[,3] <- LambdaQ[,3]/colSums(LambdaQ)[3]
 }
+
+# All money distributed whichever state occurs
+finalQ <- Q*totalW
+
+# Prices sum to 1
+finalP <- P 
+
+# Put together everything for final output  
+finalOutput <- cbind(Mu, finalQ, c(0,0,0), W, finalP)
+
+return(finalOutput)
+}
+
+###  Wealth distribution
+userInputW <- matrix(c(400/15, 500/15, 600/15))
+
+### Beliefs
+userInputMu <- as.matrix(t(rbind(
+  c(0.1,0.5,0.2), c(0.6, 0.3, 0.2), c(0.3, 0.2, 0.6)
+)))
+
+finalOutput <- findMarketClearing(W = userInputW, Mu = userInputMu, alpha = 0.5)
